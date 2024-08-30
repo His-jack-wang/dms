@@ -52,6 +52,7 @@ type dmsConfig struct {
 	AllowedIpNets       []*net.IPNet
 	AllowDynamicStreams bool
 	TranscodeLogPattern string
+	SpeedKBps           int
 }
 
 func (config *dmsConfig) load(configPath string) {
@@ -80,6 +81,7 @@ var config = &dmsConfig{
 	LogHeaders:       false,
 	FFprobeCachePath: getDefaultFFprobeCachePath(),
 	ForceTranscodeTo: "",
+	SpeedKBps:        0,
 }
 
 func getDefaultFFprobeCachePath() (path string) {
@@ -146,6 +148,7 @@ func mainErr() error {
 	flag.BoolVar(&config.IgnoreUnreadable, "ignoreUnreadable", false, "ignore unreadable files and directories")
 	ignorePaths := flag.String("ignore", "", "comma separated list of directories to ignore (i.e. thumbnails,thumbs)")
 	flag.BoolVar(&config.AllowDynamicStreams, "allowDynamicStreams", false, "activate support for dynamic streams described via .dms.json metadata files")
+	flag.IntVar(&config.SpeedKBps, "speed", 0, "serve file with speed in KBps, can be overridden by client like: http://host:port/?res=path/to/file&speed=1024")
 
 	flag.Parse()
 	if flag.NArg() != 0 {
@@ -272,6 +275,7 @@ func mainErr() error {
 		IgnoreUnreadable:    config.IgnoreUnreadable,
 		IgnorePaths:         config.IgnorePaths,
 		AllowedIpNets:       config.AllowedIpNets,
+		SpeedKBps:           config.SpeedKBps,
 	}
 	if err := dmsServer.Init(); err != nil {
 		log.Fatalf("error initing dms server: %v", err)

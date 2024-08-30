@@ -1,6 +1,7 @@
 package dms
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	"encoding/xml"
@@ -280,6 +281,7 @@ type Server struct {
 	TranscodeLogPattern string
 	Logger              log.Logger
 	eventingLogger      log.Logger
+	SpeedKBps           int
 }
 
 // UPnP SOAP service.
@@ -872,7 +874,36 @@ func (server *Server) initMux(mux *http.ServeMux) {
 			}
 			w.Header().Set("Content-Type", string(mimeType))
 			w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(path.Base(filePath)))
-			http.ServeFile(w, r, filePath)
+
+			speedKBps := server.SpeedKBps
+			speedStr := r.URL.Query().Get("speed")
+			if speedStr != "" {
+				speedKBps, _ = strconv.Atoi(speedStr)
+			}
+			if speedKBps == 0 {
+				http.ServeFile(w, r, filePath)
+			} else {
+				log.Printf("serving file %s at %d KBps", filePath, speedKBps)
+
+				f, err := os.Open(filePath)
+				if err != nil {
+					log.Printf("could not open file %s: %s", filePath, err)
+				}
+				defer f.Close()
+				reader := bufio.NewReader(f)
+				buf := make([]byte, 1024)
+				for {
+					n, err := reader.Read(buf)
+					if err != nil {
+						if err == io.EOF {
+							break
+						}
+						log.Printf("could not read file %s: %s", filePath, err)
+					}
+					time.Sleep(time.Duration(1000/speedKBps) * time.Millisecond)
+					w.Write(buf[:n])
+				}
+			}
 			return
 		}
 		if server.NoTranscode {
